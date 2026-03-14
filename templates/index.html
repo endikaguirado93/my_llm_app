@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 600px; margin: 80px auto; padding: 0 20px; font-family: sans-serif; text-align: center;">
+  <h1>Endika Experiment</h1>
+  <p style="color: #666; font-size: 18px; margin-bottom: 40px;">What would you like to do?</p>
+
+  <div style="display: flex; gap: 20px; justify-content: center;">
+    <a href="/chat" style="
+      display: block; padding: 30px 40px; background: #0071e3; color: white;
+      border-radius: 12px; text-decoration: none; font-size: 18px; font-weight: bold;
+      flex: 1; max-width: 200px;">
+      💬<br><br>Chat with an LLM
+    </a>
+    <a href="/calculator" style="
+      display: block; padding: 30px 40px; background: #34c759; color: white;
+      border-radius: 12px; text-decoration: none; font-size: 18px; font-weight: bold;
+      flex: 1; max-width: 200px;">
+      🧮<br><br>Calculator
+    </a>
+  </div>
+</div>
+{% endblock %}

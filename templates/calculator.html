@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">
+  <h2>🧮 Calculator</h2>
+  <p style="color: #666;">Enter a mathematical expression and hit Calculate.</p>
+
+  <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+    <input 
+      id="expression" 
+      type="text" 
+      placeholder="e.g. (3 + 5) * 2" 
+      style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;"
+    />
+    <button 
+      onclick="calculate()" 
+      style="padding: 10px 20px; background: #0071e3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
+      Calculate
+    </button>
+  </div>
+
+  <div id="result" style="background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 50px; font-size: 18px;">
+    Result will appear here...
+  </div>
+
+  <div id="history" style="margin-top: 24px;">
+    <h3>History</h3>
+    <ul id="history-list" style="list-style: none; padding: 0;"></ul>
+  </div>
+</div>
+
+<script>
+  let calcHistory = [];
+
+  async function calculate() {
+    const input = document.getElementById("expression");
+    const resultBox = document.getElementById("result");
+    const expression = input.value.trim();
+    if (!expression) return;
+
+    resultBox.textContent = "Calculating...";
+
+    const res = await fetch("/api/calculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expression })
+    });
+    const data = await res.json();
+
+    // Show result
+    resultBox.textContent = `${expression} = ${data.result}`;
+
+    // Add to history
+    calcHistory.unshift({ expression, result: data.result });
+    renderHistory();
+
+    input.value = "";
+    input.focus();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById("history-list");
+    list.innerHTML = calcHistory.map(item => `
+      <li style="padding: 8px 12px; background: #e5e5ea; border-radius: 8px; margin-bottom: 8px; cursor: pointer;"
+          onclick="document.getElementById('expression').value = '${item.expression}'">
+        ${item.expression} = ${item.result}
+      </li>
+    `).join("");
+  }
+
+  document.getElementById("expression").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") calculate();
+  });
+</script>
+{% endblock %}

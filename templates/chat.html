@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 700px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">
+  <h2>💬 Chat</h2>
+
+  <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+    <label style="font-weight: bold;">Model:</label>
+    <select id="model-select" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;">
+      <option value="llama3.2">Llama 3.2</option>
+      <option value="mistral">Mistral</option>
+      <option value="gemma">Gemma</option>
+    </select>
+    <button onclick="clearChat()" style="padding: 8px 16px; background: #ff3b30; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+      Clear Chat
+    </button>
+  </div>
+
+  <div id="chat" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; height: 400px; overflow-y: auto; margin-bottom: 16px; background: #f9f9f9;"></div>
+
+  <div style="display: flex; gap: 8px;">
+    <input 
+      id="prompt" 
+      type="text" 
+      placeholder="Ask something..." 
+      style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;"
+    />
+    <button 
+      id="send-btn" 
+      onclick="sendMessage()" 
+      style="padding: 10px 20px; background: #0071e3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
+      Send
+    </button>
+  </div>
+</div>
+
+<style>
+  .user { text-align: right; margin-bottom: 12px; }
+  .user span { background: #0071e3; color: white; padding: 8px 12px; border-radius: 16px; display: inline-block; max-width: 80%; }
+  .bot { text-align: left; margin-bottom: 12px; }
+  .bot span { background: #e5e5ea; color: black; padding: 8px 12px; border-radius: 16px; display: inline-block; max-width: 80%; }
+  #send-btn:disabled { background: #aaa; }
+</style>
+
+<script>
+  let history = [];
+
+  async function sendMessage() {
+    const input = document.getElementById("prompt");
+    const chat = document.getElementById("chat");
+    const btn = document.getElementById("send-btn");
+    const model = document.getElementById("model-select").value;
+    const prompt = input.value.trim();
+    if (!prompt) return;
+
+    history.push({ role: "user", content: prompt });
+    chat.innerHTML += `<div class="message user"><span>${prompt}</span></div>`;
+    input.value = "";
+    btn.disabled = true;
+
+    const thinkingId = "thinking-" + Date.now();
+    chat.innerHTML += `<div class="message bot" id="${thinkingId}"><span>Thinking...</span></div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: history, model: model })
+    });
+    const data = await res.json();
+
+    history.push({ role: "assistant", content: data.response });
+    document.getElementById(thinkingId).innerHTML = `<span>${data.response}</span>`;
+    chat.scrollTop = chat.scrollHeight;
+    btn.disabled = false;
+    input.focus();
+  }
+
+  function clearChat() {
+    history = [];
+    document.getElementById("chat").innerHTML = "";
+  }
+
+  document.getElementById("prompt").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") sendMessage();
+  });
+</script>
+{% endblock %}

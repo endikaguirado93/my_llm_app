@@ -1,0 +1,7 @@
+Every Time You Come Back to This Project, open terminal on VS and type these instructions:
+
+cd ~/my_llm_app       # go to your project
+source venv/bin/activate  # activate the environment
+code .                    # open VS Code
+
+Then hit F5 or run uvicorn main:app --reload and you're live.
