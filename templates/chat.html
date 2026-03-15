@@ -1,32 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="max-width: 700px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">
-  <h2>💬 Chat</h2>
+<div style="max-width: 760px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">
+  <h2>💬 Chat Arena</h2>
 
   <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-    <label style="font-weight: bold;">Model:</label>
-    <select id="model-select" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;">
-      <option value="llama3.2">Llama 3.2</option>
-      <option value="mistral">Mistral</option>
-      <option value="gemma">Gemma</option>
-    </select>
     <button onclick="clearChat()" style="padding: 8px 16px; background: #ff3b30; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
       Clear Chat
     </button>
+    <span style="font-size: 13px; color: #888;">All models respond · peer-rated · best shown first</span>
   </div>
 
-  <div id="chat" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; height: 400px; overflow-y: auto; margin-bottom: 16px; background: #f9f9f9;"></div>
+  <div id="chat" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 300px; max-height: 500px; overflow-y: auto; margin-bottom: 16px; background: #f9f9f9;"></div>
 
   <div style="display: flex; gap: 8px;">
-    <input 
-      id="prompt" 
-      type="text" 
-      placeholder="Ask something..." 
-      style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;"
-    />
-    <button 
-      id="send-btn" 
-      onclick="sendMessage()" 
+    <input id="prompt" type="text" placeholder="Ask all models at once…"
+      style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;" />
+    <button id="send-btn" onclick="sendMessage()"
       style="padding: 10px 20px; background: #0071e3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
       Send
     </button>
@@ -36,43 +25,202 @@
 <style>
   .user { text-align: right; margin-bottom: 12px; }
   .user span { background: #0071e3; color: white; padding: 8px 12px; border-radius: 16px; display: inline-block; max-width: 80%; }
-  .bot { text-align: left; margin-bottom: 12px; }
-  .bot span { background: #e5e5ea; color: black; padding: 8px 12px; border-radius: 16px; display: inline-block; max-width: 80%; }
-  #send-btn:disabled { background: #aaa; }
+
+  .arena-turn { margin-bottom: 20px; }
+
+  .arena-winner {
+    background: white; border: 2px solid #0071e3; border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 8px;
+  }
+  .arena-winner .badge {
+    font-size: 12px; font-weight: bold; color: #0071e3;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
+  .arena-winner .model-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .arena-winner .response-text { font-size: 15px; line-height: 1.5; }
+  .arena-winner .score-pill {
+    display: inline-block; background: #e8f0fe; color: #0071e3;
+    border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; margin-top: 8px;
+  }
+
+  .arena-others { display: flex; flex-direction: column; gap: 6px; }
+  .arena-other {
+    background: white; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;
+  }
+  .arena-other summary {
+    padding: 10px 14px; cursor: pointer; font-size: 13px; color: #555;
+    display: flex; justify-content: space-between; list-style: none; user-select: none;
+  }
+  .arena-other summary::-webkit-details-marker { display: none; }
+  .arena-other summary .chevron { transition: transform .2s; }
+  .arena-other[open] summary .chevron { transform: rotate(180deg); }
+  .arena-other .other-body { padding: 10px 14px 14px; font-size: 14px; line-height: 1.5; color: #333; border-top: 1px solid #eee; }
+
+  #send-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+  /* ── progress box ── */
+  .progress-box {
+    background: white; border: 1px solid #ddd; border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 12px; font-size: 13px;
+  }
+  .progress-title {
+    font-weight: 600; font-size: 13px; color: #333; margin-bottom: 10px;
+  }
+  .progress-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px; color: #555;
+  }
+  .progress-row .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: #ddd;
+  }
+  .progress-row.done .dot { background: #34c759; }
+  .progress-row.spin .dot { background: #ff9500; animation: pulse .8s infinite; }
+  .progress-row .label { flex: 1; }
+  .progress-row .check { color: #34c759; font-size: 13px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .vote-grid {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+  }
+  .vote-chip {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: #f0f0f0; color: #666;
+  }
+  .vote-chip.done { background: #d4edda; color: #155724; }
 </style>
 
 <script>
   let history = [];
+  const MODEL_LABELS = { "llama3.2": "Llama 3.2", "mistral": "Mistral", "gemma": "Gemma" };
+  const MODELS       = ["llama3.2", "mistral", "gemma"];
+  const TOTAL_VOTES  = MODELS.length * (MODELS.length - 1); // 6
 
   async function sendMessage() {
-    const input = document.getElementById("prompt");
-    const chat = document.getElementById("chat");
-    const btn = document.getElementById("send-btn");
-    const model = document.getElementById("model-select").value;
+    const input  = document.getElementById("prompt");
+    const chat   = document.getElementById("chat");
+    const btn    = document.getElementById("send-btn");
     const prompt = input.value.trim();
     if (!prompt) return;
 
     history.push({ role: "user", content: prompt });
-    chat.innerHTML += `<div class="message user"><span>${prompt}</span></div>`;
+    chat.innerHTML += `<div class="message user"><span>${escHtml(prompt)}</span></div>`;
     input.value = "";
     btn.disabled = true;
 
-    const thinkingId = "thinking-" + Date.now();
-    chat.innerHTML += `<div class="message bot" id="${thinkingId}"><span>Thinking...</span></div>`;
+    // ── inject live progress box ──
+    const boxId = "progress-" + Date.now();
+    chat.innerHTML += `
+      <div id="${boxId}" class="progress-box">
+        <div class="progress-title">⏳ Arena in progress…</div>
+        <div id="${boxId}-models">
+          ${MODELS.map(m => `
+            <div class="progress-row spin" id="row-${boxId}-${m}">
+              <span class="dot"></span>
+              <span class="label">${MODEL_LABELS[m]} thinking…</span>
+            </div>`).join("")}
+        </div>
+        <div id="${boxId}-votes" style="margin-top:10px; display:none;">
+          <div class="progress-title" id="${boxId}-vote-title" style="margin-bottom:6px;">🗳️ Peer voting</div>
+          <div class="vote-grid" id="vote-grid-${boxId}">
+            ${MODELS.flatMap(judge => MODELS
+                .filter(c => c !== judge)
+                .map(candidate => `
+                  <span class="vote-chip" id="chip-${boxId}-${judge}-${candidate}">
+                    ${MODEL_LABELS[judge]} → ${MODEL_LABELS[candidate]}
+                  </span>`)).join("")}
+          </div>
+        </div>
+      </div>`;
     chat.scrollTop = chat.scrollHeight;
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history, model: model })
-    });
-    const data = await res.json();
+    // ── open SSE stream ──
+    try {
+      const res = await fetch("/api/chat/arena/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history })
+      });
 
-    history.push({ role: "assistant", content: data.response });
-    document.getElementById(thinkingId).innerHTML = `<span>${data.response}</span>`;
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop(); // keep incomplete chunk
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6));
+          handleEvent(event, boxId, chat);
+        }
+      }
+    } catch (err) {
+      const box = document.getElementById(boxId);
+      if (box) box.innerHTML += `<div style="color:red;margin-top:8px;">⚠️ ${escHtml(err.message)}</div>`;
+    }
+
     chat.scrollTop = chat.scrollHeight;
     btn.disabled = false;
     input.focus();
+  }
+
+  function handleEvent(event, boxId, chat) {
+    if (event.type === "response") {
+      const row = document.getElementById(`row-${boxId}-${event.model}`);
+      if (row) {
+        row.className = "progress-row done";
+        row.innerHTML = `
+          <span class="dot"></span>
+          <span class="label">${MODEL_LABELS[event.model]} responded</span>
+          <span class="check">✓</span>`;
+      }
+      // reveal vote section on first response
+      const voteSection = document.getElementById(`${boxId}-votes`);
+      if (voteSection) voteSection.style.display = "";
+
+    } else if (event.type === "vote") {
+      const chip = document.getElementById(`chip-${boxId}-${event.judge}-${event.candidate}`);
+      if (chip) chip.className = "vote-chip done";
+      const title = document.getElementById(`${boxId}-vote-title`);
+      if (title) title.textContent = `🗳️ Voting… ${event.votes_done}/${event.votes_total}`;
+
+    } else if (event.type === "result") {
+      history.push({ role: "assistant", content: event.responses[event.winner] });
+
+      const winner   = event.winner;
+      const others   = MODELS.filter(m => m !== winner).sort((a, b) => event.scores[b] - event.scores[a]);
+      const maxScore = (MODELS.length - 1) * 10;
+
+      let html = `<div class="arena-turn">
+        <div class="arena-winner">
+          <div class="badge">🏆 Best response</div>
+          <div class="model-name">${escHtml(MODEL_LABELS[winner] || winner)}</div>
+          <div class="response-text">${escHtml(event.responses[winner])}</div>
+          <span class="score-pill">Score ${event.scores[winner]}/${maxScore}</span>
+        </div>
+        <div class="arena-others">
+          ${others.map(m => `
+            <details class="arena-other">
+              <summary>
+                <span>${escHtml(MODEL_LABELS[m])}
+                  <span style="color:#aaa;font-size:12px;"> · score ${event.scores[m]}/${maxScore}</span>
+                </span>
+                <span class="chevron">▾</span>
+              </summary>
+              <div class="other-body">${escHtml(event.responses[m])}</div>
+            </details>`).join("")}
+        </div>
+      </div>`;
+
+      document.getElementById(boxId).outerHTML = html;
+      chat.scrollTop = chat.scrollHeight;
+    }
   }
 
   function clearChat() {
@@ -80,7 +228,13 @@
     document.getElementById("chat").innerHTML = "";
   }
 
-  document.getElementById("prompt").addEventListener("keydown", function(e) {
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  document.getElementById("prompt").addEventListener("keydown", e => {
     if (e.key === "Enter") sendMessage();
   });
 </script>
