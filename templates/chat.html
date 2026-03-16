@@ -1,94 +1,273 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="max-width: 760px; margin: 40px auto; padding: 0 20px; font-family: sans-serif;">
-  <h2>💬 Chat Arena</h2>
-
-  <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-    <button onclick="clearChat()" style="padding: 8px 16px; background: #ff3b30; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
-      Clear Chat
-    </button>
-    <span style="font-size: 13px; color: #888;">All models respond · peer-rated · best shown first</span>
-  </div>
-
-  <div id="chat" style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 300px; max-height: 500px; overflow-y: auto; margin-bottom: 16px; background: #f9f9f9;"></div>
-
-  <div style="display: flex; gap: 8px;">
-    <input id="prompt" type="text" placeholder="Ask all models at once…"
-      style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px;" />
-    <button id="send-btn" onclick="sendMessage()"
-      style="padding: 10px 20px; background: #0071e3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">
-      Send
-    </button>
-  </div>
-</div>
 
 <style>
-  .user { text-align: right; margin-bottom: 12px; }
-  .user span { background: #0071e3; color: white; padding: 8px 12px; border-radius: 16px; display: inline-block; max-width: 80%; }
+  /* ── layout ── */
+  .chat-wrapper {
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px;
+    font-family: sans-serif;
+  }
 
-  .arena-turn { margin-bottom: 20px; }
+  .chat-toolbar {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chat-toolbar-hint {
+    font-size: 13px;
+    color: #888;
+  }
+
+  .chat-window {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 300px;
+    max-height: 500px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+    background: #f9f9f9;
+  }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .chat-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .chat-send-btn {
+    padding: 10px 20px;
+    background: #0071e3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+  }
+
+  .chat-send-btn:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+  }
+
+  .btn-clear {
+    padding: 8px 16px;
+    background: #ff3b30;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  /* ── messages ── */
+  .user {
+    text-align: right;
+    margin-bottom: 12px;
+  }
+
+  .user span {
+    background: #0071e3;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 16px;
+    display: inline-block;
+    max-width: 80%;
+  }
+
+  /* ── arena turn ── */
+  .arena-turn {
+    margin-bottom: 20px;
+  }
 
   .arena-winner {
-    background: white; border: 2px solid #0071e3; border-radius: 12px;
-    padding: 14px 16px; margin-bottom: 8px;
+    background: white;
+    border: 2px solid #0071e3;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
   }
+
   .arena-winner .badge {
-    font-size: 12px; font-weight: bold; color: #0071e3;
-    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #0071e3;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
   }
-  .arena-winner .model-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-  .arena-winner .response-text { font-size: 15px; line-height: 1.5; }
+
+  .arena-winner .model-name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .arena-winner .response-text {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
   .arena-winner .score-pill {
-    display: inline-block; background: #e8f0fe; color: #0071e3;
-    border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; margin-top: 8px;
+    display: inline-block;
+    background: #e8f0fe;
+    color: #0071e3;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
   }
 
-  .arena-others { display: flex; flex-direction: column; gap: 6px; }
+  /* ── other models ── */
+  .arena-others {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
   .arena-other {
-    background: white; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
   }
-  .arena-other summary {
-    padding: 10px 14px; cursor: pointer; font-size: 13px; color: #555;
-    display: flex; justify-content: space-between; list-style: none; user-select: none;
-  }
-  .arena-other summary::-webkit-details-marker { display: none; }
-  .arena-other summary .chevron { transition: transform .2s; }
-  .arena-other[open] summary .chevron { transform: rotate(180deg); }
-  .arena-other .other-body { padding: 10px 14px 14px; font-size: 14px; line-height: 1.5; color: #333; border-top: 1px solid #eee; }
 
-  #send-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .arena-other summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    user-select: none;
+  }
+
+  .arena-other summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .arena-other summary .chevron {
+    transition: transform .2s;
+  }
+
+  .arena-other[open] summary .chevron {
+    transform: rotate(180deg);
+  }
+
+  .arena-other .other-body {
+    padding: 10px 14px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #333;
+    border-top: 1px solid #eee;
+  }
+
+  .other-score {
+    color: #aaa;
+    font-size: 12px;
+  }
 
   /* ── progress box ── */
   .progress-box {
-    background: white; border: 1px solid #ddd; border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 12px; font-size: 13px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
   }
+
   .progress-title {
-    font-weight: 600; font-size: 13px; color: #333; margin-bottom: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 10px;
   }
+
   .progress-row {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 6px; color: #555;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: #555;
   }
+
   .progress-row .dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
     background: #ddd;
   }
+
   .progress-row.done .dot { background: #34c759; }
   .progress-row.spin .dot { background: #ff9500; animation: pulse .8s infinite; }
+
   .progress-row .label { flex: 1; }
-  .progress-row .check { color: #34c759; font-size: 13px; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .progress-row .check {
+    color: #34c759;
+    font-size: 13px;
+  }
+
+  .progress-votes {
+    margin-top: 10px;
+  }
 
   .vote-grid {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
   }
+
   .vote-chip {
-    font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    background: #f0f0f0; color: #666;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #f0f0f0;
+    color: #666;
   }
-  .vote-chip.done { background: #d4edda; color: #155724; }
+
+  .vote-chip.done {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+  }
 </style>
+
+<div class="chat-wrapper">
+  <h2>💬 Chat Arena</h2>
+
+  <div class="chat-toolbar">
+    <button onclick="clearChat()" class="btn-clear">Clear Chat</button>
+    <span class="chat-toolbar-hint">All models respond · peer-rated · best shown first</span>
+  </div>
+
+  <div id="chat" class="chat-window"></div>
+
+  <div class="chat-input-row">
+    <input id="prompt" type="text" placeholder="Ask all models at once…" class="chat-input" />
+    <button id="send-btn" onclick="sendMessage()" class="chat-send-btn">Send</button>
+  </div>
+</div>
 
 <script>
   let history = [];
@@ -120,8 +299,8 @@
               <span class="label">${MODEL_LABELS[m]} thinking…</span>
             </div>`).join("")}
         </div>
-        <div id="${boxId}-votes" style="margin-top:10px; display:none;">
-          <div class="progress-title" id="${boxId}-vote-title" style="margin-bottom:6px;">🗳️ Peer voting</div>
+        <div id="${boxId}-votes" class="progress-votes" style="display:none;">
+          <div class="progress-title" id="${boxId}-vote-title">🗳️ Peer voting</div>
           <div class="vote-grid" id="vote-grid-${boxId}">
             ${MODELS.flatMap(judge => MODELS
                 .filter(c => c !== judge)
@@ -152,7 +331,7 @@
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n\n");
-        buffer = lines.pop(); // keep incomplete chunk
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -180,7 +359,6 @@
           <span class="label">${MODEL_LABELS[event.model]} responded</span>
           <span class="check">✓</span>`;
       }
-      // reveal vote section on first response
       const voteSection = document.getElementById(`${boxId}-votes`);
       if (voteSection) voteSection.style.display = "";
 
@@ -209,7 +387,7 @@
             <details class="arena-other">
               <summary>
                 <span>${escHtml(MODEL_LABELS[m])}
-                  <span style="color:#aaa;font-size:12px;"> · score ${event.scores[m]}/${maxScore}</span>
+                  <span class="other-score"> · score ${event.scores[m]}/${maxScore}</span>
                 </span>
                 <span class="chevron">▾</span>
               </summary>
@@ -238,4 +416,5 @@
     if (e.key === "Enter") sendMessage();
   });
 </script>
+
 {% endblock %}
